@@ -7,7 +7,30 @@ export default function Chat() {
   const [messages, setMessages] = useState<{ role: string; content: string }[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+const [isLoaded, setIsLoaded] = useState(false);
+
+  // טעינת השיחה מהזיכרון המקומי כשהאפליקציה עולה
+  useEffect(() => {
+    const saved = localStorage.getItem('chatHistory');
+    if (saved) {
+      try {
+        setMessages(JSON.parse(saved));
+      } catch (e) {
+        console.error('Failed to parse chat history');
+      }
+    }
+    setIsLoaded(true);
+  }, []);
+
+  // שמירת השיחה לזיכרון המקומי בכל פעם שהיא מתעדכנת
+  useEffect(() => {
+    if (isLoaded) {
+      localStorage.setItem('chatHistory', JSON.stringify(messages));
+    }
+  }, [messages, isLoaded]);
+
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -69,7 +92,7 @@ export default function Chat() {
   };
 
   return (
-    <div className="flex flex-col h-screen max-w-2xl mx-auto bg-[#FFF9F5] shadow-xl border-x border-orange-100" dir="rtl">
+    <div className="flex flex-col h-[100dvh] max-w-2xl mx-auto bg-[#FFF9F5] shadow-xl border-x border-orange-100" dir="rtl">
       {/* Header */}
       <header className="p-4 bg-white border-b border-orange-100 flex items-center justify-between sticky top-0 z-10">
         <div className="flex items-center gap-2">
@@ -79,16 +102,46 @@ export default function Chat() {
           <h1 className="font-bold text-lg text-slate-700">צוות המומחים לשירות לאומי</h1>
         </div>
         
-        {/* כפתור האיפוס החדש */}
+        {/* כפתור האיפוס והאישור הכפול */}
         {messages.length > 0 && (
-          <button 
-            onClick={() => setMessages([])}
-            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-slate-500 bg-slate-50 border border-slate-200 rounded-lg hover:bg-orange-50 hover:text-orange-500 hover:border-orange-200 transition-all"
-            title="צ'אט חדש"
-          >
-            <RotateCcw size={16} />
-            <span>צ'אט חדש</span>
-          </button>
+          <div className="relative">
+            {!showResetConfirm ? (
+              <button 
+                onClick={() => setShowResetConfirm(true)}
+                className="flex items-center gap-2 px-3 py-1.5 text-sm font-bold text-white bg-orange-500 border border-orange-600 rounded-full hover:bg-orange-600 shadow-sm transition-all"
+                title="התחלה חדשה"
+              >
+                <Sparkles size={14} />
+                <span>התחלה חדשה</span>
+              </button>
+            ) : (
+              <motion.div 
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="absolute top-full left-0 mt-2 bg-white border border-orange-100 shadow-xl rounded-xl p-4 min-w-[220px] z-50"
+              >
+                <p className="text-sm text-slate-700 font-bold mb-3 text-center">למחוק את היסטוריית הצ'אט?</p>
+                <div className="flex gap-2 justify-center">
+                  <button 
+                    onClick={() => {
+                      setMessages([]);
+                      localStorage.removeItem('chatHistory');
+                      setShowResetConfirm(false);
+                    }}
+                    className="flex-1 px-3 py-2 text-sm font-bold text-white bg-orange-500 rounded-lg hover:bg-orange-600 transition-colors"
+                  >
+                    כן
+                  </button>
+                  <button 
+                    onClick={() => setShowResetConfirm(false)}
+                    className="flex-1 px-3 py-2 text-sm font-bold text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors"
+                  >
+                    לא
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </div>
         )}
       </header>
 
