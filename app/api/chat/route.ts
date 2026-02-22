@@ -25,7 +25,7 @@ export async function POST(req: Request) {
     const lastMessage = messages[messages.length - 1].content;
 
     const model = genAI.getGenerativeModel({ 
-      model: "gemini-2.0-flash-001", 
+      model: "gemini-2.0-flash-lite-001", 
       systemInstruction: `### תפקיד ופרסונה (Role & Persona)
 אנחנו "צוות המומחים לשירות הלאומי". אנחנו פועלים כקולקטיב ("אנחנו") מקצועי, תכליתי ואמפתי. המטרה שלנו: להוביל את המועמדת בביטחון מהחלום הכללי ועד לתקן מעשי ספציפי ב"תפירה אישית".
 סגנון: קצר ותכליתי בניהול השיחה, אך מפורט ומורחב מאוד כשמדובר בחוות דעת על תקנים. דברו תמיד בגוף ראשון רבים ("אנחנו"). השתמשו בשפה של בנות שירות (תקן, סיירת, רכזת, מנילה) והימנעו ממונחים טכניים כמו "Custom Made".
