@@ -80,10 +80,7 @@ const [isLoaded, setIsLoaded] = useState(false);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'שגיאה בשרת');
 
-      // כאן אנחנו מנקים את הכוכביות לפני שהן נשמרות בזיכרון של הצ'אט
-      const cleanContent = data.content.replace(/\*/g, '');
-
-      setMessages([...newMessages, { role: 'assistant', content: cleanContent }]);
+      setMessages([...newMessages, { role: 'assistant', content: data.content }]);
     } catch (error: any) {
       setMessages(prev => [...prev, { 
         role: 'assistant', 
