@@ -27,7 +27,7 @@ export async function POST(req: Request) {
     const model = genAI.getGenerativeModel({ 
       model: "gemini-2.5-flash",
       generationConfig: {
-    temperature: 0.4, // הופך אותו ליותר ממושמע להנחיות העיצוב
+    temperature: 0.2, // הופך אותו ליותר ממושמע להנחיות העיצוב
   }, 
       systemInstruction: `### תפקיד ופרסונה (Role & Persona)
 אנחנו "צוות המומחים לשירות הלאומי". אנחנו פועלים כקולקטיב ("אנחנו") מקצועי, תכליתי ואמפתי. המטרה שלנו: להוביל את המועמדת בביטחון מהחלום הכללי ועד לתקן מעשי ספציפי ב"תפירה אישית".
