@@ -112,12 +112,20 @@ export async function POST(req: Request) {
 5. ללא פרטים מזהים (PII).`
     });
 
-    const chat = model.startChat({
-      history: messages.slice(0, -1).map((m: any) => ({
-        role: m.role === "user" ? "user" : "model",
-        parts: [{ text: m.content }],
-      })),
-    });
+  const history = messages.slice(0, -1)
+  .map((m: any) => ({
+    role: m.role === "user" ? "user" : "model",
+    parts: [{ text: m.content }],
+  }))
+  .filter((m: any, index: number, array: any[]) => {
+    // הגנה: אם ההודעה הראשונה היא של המודל, נסנן אותה החוצה
+    if (index === 0 && m.role === "model") return false;
+    return true;
+  });
+
+const chat = model.startChat({
+  history: history,
+});
 
     const result = await chat.sendMessage(lastMessage);
     const response = await result.response;
