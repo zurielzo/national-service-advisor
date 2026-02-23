@@ -154,11 +154,31 @@ let finalResponseText = "";
     while (needsValidation && attempts < maxAttempts) {
       const prompt = attempts === 0 
         ? lastMessage 
-        : "חלק מהקישורים ששלחת שבורים. עבור כל תקן שהקישור שלו לא תקין, אנא הסר אותו מהרשימה ומצא תקן אחר מתאים במקומו עם קישור וולידי ועובד. וודא שבסוף יש לנו בדיוק 5 תקנים עם קישורים לחיצים.";
+        : "חלק מהקישורים ששלחת מובילים לדף שגיאה (404). אנא מצא עבור התקנים האלו קישורים חלופיים תקינים שעובדים עכשיו, או החלף אותם בתקנים אחרים עם קישור עובד. וודא שבסוף יש 5 תקנים.";
 
-    const result = await chat.sendMessage(lastMessage);
-    const response = await result.response;
-    const rawText = response.text();
+      const result = await chat.sendMessage(prompt); // שים לב: כאן שולחים prompt ולא lastMessage
+      const response = await result.response;
+      finalResponseText = response.text();
+
+      // חילוץ קישורים לבדיקה
+      const urlRegex = /(https?:\/\/[^\s'",;:!?()]+)/g;
+      const urls = finalResponseText.match(urlRegex) || [];
+
+      if (urls.length === 0) {
+        needsValidation = false; 
+      } else {
+        // כאן קורה הקסם: בדיקה טכנית של הקישורים
+        const validationResults = await Promise.all(urls.map(url => isLinkValid(url)));
+        const allValid = validationResults.every(res => res === true);
+
+        if (allValid) {
+          needsValidation = false;
+        } else {
+          attempts++;
+          if (attempts >= maxAttempts) needsValidation = false;
+        }
+      }
+    }
     
     // פילטר אגרסיבי לניקוי תווים לפני שליחה חזרה ללקוח
     const cleanText = rawText
