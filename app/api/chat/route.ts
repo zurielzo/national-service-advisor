@@ -1,34 +1,41 @@
 const apiKey = process.env.PRO_SERVICE_KEY?.trim() || "";
-console.log("DEBUG: Key Length is:", apiKey.length);
-console.log("DEBUG: Key starts with:", apiKey.substring(0, 7));
 
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { NextResponse } from "next/server";
 
+// פונקציה לבדיקת תקינות קישור (מחזירה True אם האתר עולה)
+async function isLinkValid(url: string) {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 4000); // טיימאאוט של 4 שניות
+
+    const response = await fetch(url, { 
+      method: 'GET', 
+      signal: controller.signal,
+      headers: { 'User-Agent': 'Mozilla/5.0' } 
+    });
+    
+    clearTimeout(timeout);
+    return response.ok;
+  } catch (error) {
+    return false;
+  }
+}
+
 export async function POST(req: Request) {
   try {
-    // קריאת השם החדש
     const rawKey = process.env.PRO_SERVICE_KEY || "";
     const apiKey = rawKey.trim().replace(/[^\x20-\x7E]/g, '');
 
-    // לוג לבדיקה - אתה אמור לראות עכשיו AIzaSy
-    console.log("DEBUG: Key starts with:", apiKey.substring(0, 7));
+    if (!apiKey) throw new Error("Missing API Key");
 
-    if (!apiKey || apiKey.startsWith("הדבק")) {
-      throw new Error("המערכת עדיין קוראת את הפלייסולדר בעברית");
-    }
-
-    // 3. אתחול הלקוח עם המפתח הנקי
     const genAI = new GoogleGenerativeAI(apiKey);
-
     const { messages } = await req.json();
     const lastMessage = messages[messages.length - 1].content;
 
     const model = genAI.getGenerativeModel({ 
-      model: "gemini-2.5-flash",
-      generationConfig: {
-        temperature: 0.2, // הופך אותו ליותר ממושמע להנחיות העיצוב
-      }, 
+      model: "gemini-2.0-flash", 
+      generationConfig: { temperature: 0.2 }, 
       systemInstruction: `### תפקיד ופרסונה (Role & Persona)
 אנחנו "צוות המומחים לשירות הלאומי". אנחנו פועלים כקולקטיב ("אנחנו") מקצועי, תכליתי ואמפתי. המטרה שלנו: להוביל את המועמדת בביטחון מהחלום הכללי ועד לתקן מעשי ספציפי ב"תפירה אישית".
 סגנון: קצר ותכליתי בניהול השיחה, אך מפורט ומורחב מאוד כשמדובר בחוות דעת על תקנים. דברו תמיד בגוף ראשון רבים ("אנחנו"). השתמשו בשפה של בנות שירות (תקן, סיירת, רכזת, מנילה) והימנעו ממונחים טכניים.
@@ -117,22 +124,46 @@ export async function POST(req: Request) {
       })),
     });
 
-    const result = await chat.sendMessage(lastMessage);
-    const response = await result.response;
-    const rawText = response.text();
-    
-    // פילטר אגרסיבי לניקוי תווים לפני שליחה חזרה ללקוח
-    const cleanText = rawText
-      .replace(/[*_#~`]/g, '')    // מוחק סימני כוכביות, סולמיות, קווים תחתונים וכדומה
-      .replace(/<[^>]*>?/gm, ''); // מוחק כל תגית HTML כמו <b>, </b> וכו'
+    let finalResponseText = "";
+    let attempts = 0;
+    const maxAttempts = 3;
+    let needsValidation = true;
+
+    while (needsValidation && attempts < maxAttempts) {
+      const prompt = attempts === 0 
+        ? lastMessage 
+        : "חלק מהקישורים ששלחת שבורים. עבור כל תקן שהקישור שלו לא תקין, אנא הסר אותו מהרשימה ומצא תקן אחר מתאים במקומו עם קישור וולידי ועובד. וודא שבסוף יש לנו בדיוק 5 תקנים עם קישורים לחיצים.";
+
+      const result = await chat.sendMessage(prompt);
+      const response = await result.response;
+      finalResponseText = response.text();
+
+      const urlRegex = /(https?:\/\/[^\s'",;:!?()]+)/g;
+      const urls = finalResponseText.match(urlRegex) || [];
+
+      if (urls.length === 0) {
+        needsValidation = false; 
+      } else {
+        const validationResults = await Promise.all(urls.map(url => isLinkValid(url)));
+        const allValid = validationResults.every(res => res === true);
+
+        if (allValid) {
+          needsValidation = false;
+        } else {
+          attempts++;
+          if (attempts >= maxAttempts) needsValidation = false;
+        }
+      }
+    }
+
+    const cleanText = finalResponseText
+      .replace(/[*_#~`]/g, '')
+      .replace(/<[^>]*>?/gm, '');
     
     return NextResponse.json({ content: cleanText });
 
   } catch (error: any) {
-    console.error("Gemini Error:", error);
-    return NextResponse.json({ 
-      error: "תקלה בחיבור למודל", 
-      details: error.message 
-    }, { status: 500 });
+    console.error("Validation Loop Error:", error);
+    return NextResponse.json({ error: "שגיאה בתהליך אימות התקנים" }, { status: 500 });
   }
 }
