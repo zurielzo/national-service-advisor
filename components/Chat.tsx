@@ -62,6 +62,10 @@ const [isLoaded, setIsLoaded] = useState(false);
 
   const sendMessage = async (e?: React.FormEvent, customText?: string) => {
     if (e) e.preventDefault();
+    
+    // פתרון 3: הגנה קריטית - אם כבר יש טעינה, אל תאפשר שליחה נוספת בשום צורה
+    if (isLoading) return; 
+
     const textToSend = customText || input;
     if (!textToSend.trim()) return;
 
@@ -74,13 +78,17 @@ const [isLoaded, setIsLoaded] = useState(false);
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: newMessages }),
+        // פתרון 1: שולחים רק את 8 ההודעות האחרונות כדי לא להעמיס על גוגל
+        body: JSON.stringify({ messages: newMessages.slice(-8) }),
       });
       
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'שגיאה בשרת');
 
-      setMessages([...newMessages, { role: 'assistant', content: data.content }]);
+      // (השארנו לך כאן את תיקון הכוכביות מהשלב הקודם!)
+      const cleanContent = data.content.replace(/\*/g, '');
+
+      setMessages([...newMessages, { role: 'assistant', content: cleanContent }]);
     } catch (error: any) {
       setMessages(prev => [...prev, { 
         role: 'assistant', 
