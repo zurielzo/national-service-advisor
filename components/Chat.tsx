@@ -78,8 +78,8 @@ const [isLoaded, setIsLoaded] = useState(false);
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        // פתרון 1: שולחים רק את 8 ההודעות האחרונות כדי לא להעמיס על גוגל
-        body: JSON.stringify({ messages: newMessages.slice(-8) }),
+        // פתרון 1: שולחים רק את 10 ההודעות האחרונות כדי לא להעמיס על גוגל
+        body: JSON.stringify({ messages: newMessages.slice(-10) }),
       });
       
       const data = await res.json();
