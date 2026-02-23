@@ -106,7 +106,7 @@ export async function POST(req: Request) {
 
 שכבה 1 - הצגה מתומצתת:
 הציגו 5 תקנים. עבור כל תקן כתבו רק:
-- שם התקן ועמותה + קישור.
+- שם התקן ועמותה + קישור. חובה לספק כתובת URL מלאה שמתחילה ב-http. חל איסור מוחלט להשתמש בסוגריים מרובעים או בטקסט תיאורי כמו [קישור] - רק הכתובת עצמה
 - משפט אחד על למה זה מתאים לה.
 בסוף הרשימה שאלו: "על איזה מהתקנים האלו תרצי שנרחיב לך עוד מידע?"
 
@@ -152,22 +152,28 @@ let finalResponseText = "";
     let needsValidation = true;
 
     while (needsValidation && attempts < maxAttempts) {
-      const prompt = attempts === 0 
-        ? lastMessage 
-        : "חלק מהקישורים ששלחת מובילים לדף שגיאה (404). אנא מצא עבור התקנים האלו קישורים חלופיים תקינים שעובדים עכשיו, או החלף אותם בתקנים אחרים עם קישור עובד. וודא שבסוף יש 5 תקנים.";
+      let prompt = lastMessage;
+      
+      if (attempts > 0) {
+        prompt = "חלק מהקישורים שנתת הם תבניות ריקות כמו [קישור] או שהם שבורים (404). חובה לספק כתובת אינטרנט אמיתית ומלאה שמתחילה ב-https://. אל תשתמש בסוגריים מרובעים. אם אין לך קישור אמיתי, החלף את התקן באחד אחר שיש לו קישור עובד.";
+      }
 
-      const result = await chat.sendMessage(prompt); // שים לב: כאן שולחים prompt ולא lastMessage
+      const result = await chat.sendMessage(prompt);
       const response = await result.response;
       finalResponseText = response.text();
 
-      // חילוץ קישורים לבדיקה
+      // בדיקה אם הוא השתמש בתבנית של סוגריים מרובעים [ ]
+      const hasTemplate = /\[.*?\]/.test(finalResponseText);
+      
+      // חילוץ קישורים אמיתיים
       const urlRegex = /(https?:\/\/[^\s'",;:!?()]+)/g;
       const urls = finalResponseText.match(urlRegex) || [];
 
-      if (urls.length === 0) {
-        needsValidation = false; 
+      if (hasTemplate || urls.length === 0) {
+        // אם הוא "רימה" עם סוגריים או לא נתן קישורים בכלל
+        attempts++;
       } else {
-        // כאן קורה הקסם: בדיקה טכנית של הקישורים
+        // בדיקה טכנית של הקישורים האמיתיים
         const validationResults = await Promise.all(urls.map(url => isLinkValid(url)));
         const allValid = validationResults.every(res => res === true);
 
@@ -175,9 +181,10 @@ let finalResponseText = "";
           needsValidation = false;
         } else {
           attempts++;
-          if (attempts >= maxAttempts) needsValidation = false;
         }
       }
+      
+      if (attempts >= maxAttempts) needsValidation = false;
     }
     
     // פילטר אגרסיבי לניקוי תווים לפני שליחה חזרה ללקוח
