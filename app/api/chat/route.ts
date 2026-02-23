@@ -5,6 +5,25 @@ console.log("DEBUG: Key starts with:", apiKey.substring(0, 7));
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { NextResponse } from "next/server";
 
+// פונקציה לבדיקת תקינות קישור (מחזירה True אם האתר עולה)
+async function isLinkValid(url: string) {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 4000); // מחכה 4 שניות לפני שמתייאש
+
+    const response = await fetch(url, { 
+      method: 'GET', 
+      signal: controller.signal,
+      headers: { 'User-Agent': 'Mozilla/5.0' } // גורם לאתרים לחשוב שאנחנו דפדפן רגיל
+    });
+    
+    clearTimeout(timeout);
+    return response.ok; // מחזיר אמת אם הסטטוס הוא 200-299
+  } catch (error) {
+    return false; // אם יש שגיאה או טיימאאוט, הקישור נחשב "שבור"
+  }
+}
+
 export async function POST(req: Request) {
   try {
     // קריאת השם החדש
@@ -126,6 +145,16 @@ export async function POST(req: Request) {
 const chat = model.startChat({
   history: history,
 });
+
+let finalResponseText = "";
+    let attempts = 0;
+    const maxAttempts = 3;
+    let needsValidation = true;
+
+    while (needsValidation && attempts < maxAttempts) {
+      const prompt = attempts === 0 
+        ? lastMessage 
+        : "חלק מהקישורים ששלחת שבורים. עבור כל תקן שהקישור שלו לא תקין, אנא הסר אותו מהרשימה ומצא תקן אחר מתאים במקומו עם קישור וולידי ועובד. וודא שבסוף יש לנו בדיוק 5 תקנים עם קישורים לחיצים.";
 
     const result = await chat.sendMessage(lastMessage);
     const response = await result.response;
