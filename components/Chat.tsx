@@ -3,13 +3,35 @@ import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Send, User, Bot, Sparkles, Cloud, Target, Heart, RotateCcw } from 'lucide-react';
 
+// הוספנו פונקציית עזר שהופכת טקסט רגיל לקישור חי ולחיץ
+const formatMessageText = (text: string) => {
+  const urlRegex = /(https?:\/\/[^\s'",;:!?()]+)/g;
+  return text.split(urlRegex).map((part, i) => {
+    if (part.match(urlRegex)) {
+      return (
+        <a 
+          key={i} 
+          href={part} 
+          target="_blank" 
+          rel="noopener noreferrer" 
+          className="text-blue-600 underline hover:text-blue-800 break-all"
+          dir="ltr"
+        >
+          {part}
+        </a>
+      );
+    }
+    return part;
+  });
+};
+
 export default function Chat() {
   const [messages, setMessages] = useState<{ role: string; content: string }[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
-const [isLoaded, setIsLoaded] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(false);
 
   // טעינת השיחה מהזיכרון המקומי כשהאפליקציה עולה
   useEffect(() => {
@@ -30,7 +52,6 @@ const [isLoaded, setIsLoaded] = useState(false);
       localStorage.setItem('chatHistory', JSON.stringify(messages));
     }
   }, [messages, isLoaded]);
-
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -211,7 +232,10 @@ const [isLoaded, setIsLoaded] = useState(false);
                 {m.role === 'user' ? <User size={14} /> : <Bot size={14} />}
                 <span className="text-xs font-medium">{m.role === 'user' ? 'את' : 'אנחנו'}</span>
               </div>
-              <p className="whitespace-pre-wrap leading-relaxed">{m.content}</p>
+              {/* השינוי הוטמע כאן: קריאה לפונקציה שהופכת טקסט לקישור */}
+              <p className="whitespace-pre-wrap leading-relaxed">
+                {formatMessageText(m.content)}
+              </p>
             </div>
           </motion.div>
         ))}
