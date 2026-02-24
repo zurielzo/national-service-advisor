@@ -130,6 +130,35 @@ export async function POST(req: Request) {
     const maxAttempts = 3;
     let needsValidation = true;
 
+    // לולאת הוולידציה החדשה - תוקנה הלוגיקה כדי למנוע הזיות!
+    while (needsValidation && attempts < maxAttempts) {
+      const prompt = attempts === 0 
+        ? lastMessage 
+        : "חלק מהקישורים שסיפקת מובילים לשגיאת 404 (לא עובדים) או שהשתמשת בתבניות סוגריים. אנא תקן: השתמש רק באתרי העמותות המורשים. אם אינך מוצא קישור פנימי מדויק שעובד, החלף אותו בקישור לעמוד הבית של העמותה (לדוגמה https://www.shlomit.org.il), הוסף למשתמשת הנחיות אילו מילים לחפש שם, והוסף במדויק את המשפט 'אם חיפשת באתר העמותה ולא מצאת, תכתבי לנו ונחפש יחד משהו אחר'. ודא שכל הקישורים עובדים.";
+
+      const result = await chat.sendMessage(prompt);
+      const response = await result.response;
+      finalResponseText = response.text();
+      
+      const urlRegex = /(https?:\/\/[^\s'",;:!?()\[\]]+)/g;
+      const urls = finalResponseText.match(urlRegex) || [];
+
+      if (urls.length === 0) {
+        // אין קישורים בטקסט - זו שיחה רגילה. הכל תקין, אין צורך בוולידציה.
+        needsValidation = false; 
+      } else {
+        // נמצאו קישורים - נבדוק אותם
+        const validationResults = await Promise.all(urls.map(url => isLinkValid(url)));
+        const allValid = validationResults.every(res => res === true);
+
+        if (allValid) {
+          needsValidation = false; // הכל תקין, אפשר לצאת מהלולאה
+        } else {
+          attempts++; // יש שגיאות 404, נבקש מהמודל לתקן
+        }
+      }
+    }
+
     const cleanText = finalResponseText
       .replace(/[*#~`]/g, '') 
       .replace(/<[^>]*>?/gm, '');
