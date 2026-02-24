@@ -1,38 +1,15 @@
 const apiKey = process.env.PRO_SERVICE_KEY?.trim() || "";
-console.log("DEBUG: Key Length is:", apiKey.length);
-console.log("DEBUG: Key starts with:", apiKey.substring(0, 7));
 
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { NextResponse } from "next/server";
-
-// פונקציה לבדיקת תקינות קישור
-async function isLinkValid(url: string) {
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 4000);
-
-    const response = await fetch(url, { 
-      method: 'GET', 
-      signal: controller.signal,
-      headers: { 'User-Agent': 'Mozilla/5.0' } 
-    });
-    
-    clearTimeout(timeout);
-    return response.ok;
-  } catch (error) {
-    return false;
-  }
-}
 
 export async function POST(req: Request) {
   try {
     const rawKey = process.env.PRO_SERVICE_KEY || "";
     const apiKey = rawKey.trim().replace(/[^\x20-\x7E]/g, '');
 
-    console.log("DEBUG: Key starts with:", apiKey.substring(0, 7));
-
     if (!apiKey || apiKey.startsWith("הדבק")) {
-      throw new Error("המערכת עדיין קוראת את הפלייסולדר בעברית");
+      throw new Error("API Key is missing or invalid");
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
@@ -84,9 +61,18 @@ export async function POST(req: Request) {
 6. מגבלות או תנאי סף (סיווג בטחוני, בגרות, רישיון וכו')?
 
 #### שלב ג': הצגת תקנים מעשיים (Practical Placement)
+
+### חוק ברזל: קישורים ועמותות שירות לאומי בלבד!
+הקישורים שאתם מספקים יהיו אך ורק לאתרי עמותות השירות הלאומי. לעולם אל תפנו ישירות לאתר של מקום השירות (כמו מד"א, משרד ממשלתי, עמותת חסד או בתי חולים). 
+חובה להשתמש אך ורק בכתובות המדויקות הבאות (כקישור ישיר לתקן מתוכן, או לעמוד הבית שלהן):
+- עמינדב: https://www.aminadav.org.il
+- שלומית: https://www.shlomit.org.il
+- האגודה להתנדבות: https://www.sherut-leumi.co.il
+- בת עמי: https://www.bat-ami.org.il
+
 הציגו 5 תקנים ספציפיים על בסיס חיפוש Google Search בזמן אמת.
 שלבו בין תקנים מבוקשים לבין "פנינים חבויות".
-הצגת התקנים צריכה להיות בשני שלבים - שלב ראשון שלב מצומצם של הצגת 5 תקנים עם מבנה התשובה הזה - 1. שם העמותה + שם התקן + קישור ישיר, תקין, לא שבור, ללא קוד שגיאה 404, ומוביל למקום הנכון בקונטקסט. הקישור צריך להיות ישירות לתקן. אם לא נמצא הקישור ישירות לתקן, יש לתת את הקישור לאתר העמותה הרלוונטית ולכתוב למשתמשת הנחיות ברורות וקצרות למילות חיפוש מדויקות ומתאימות
+הצגת התקנים צריכה להיות בשני שלבים - שלב ראשון שלב מצומצם של הצגת 5 תקנים עם מבנה התשובה הזה - 1. שם העמותה + שם התקן + קישור ישיר, תקין, לא שבור, ללא קוד שגיאה 404, ומוביל למקום הנכון בקונטקסט. הקישור צריך להיות ישירות לתקן. אם לא נמצא הקישור ישירות לתקן, יש לתת את הקישור לאתר העמותה הרלוונטית ולכתוב למשתמשת הנחיות ברורות וקצרות למילות חיפוש מדויקות ומתאימות. סיימו במשפט: "אם חיפשת באתר העמותה ולא מצאת, תכתבי לנו ונחפש יחד משהו אחר".
 2.  הצצה אל השטח (מה מחכה לך שם): איך נראה היום שלה באמת? עומס, יחס הרכזת, אווירה.
 3. מה אומרות בנות השירות (חוכמת ההמונים): פירוט מורחב על בסיס חוות דעת
 כאשר התוכן צריך להופיע בתמצות.
@@ -125,40 +111,12 @@ export async function POST(req: Request) {
 
     const chat = model.startChat({ history });
 
-    let finalResponseText = "";
-    let attempts = 0;
-    const maxAttempts = 3;
-    let needsValidation = true;
+    // שליחת ההודעה האחרונה למודל וקבלת התשובה
+    const result = await chat.sendMessage(lastMessage);
+    const response = await result.response;
+    const finalResponseText = response.text();
 
-    // לולאת הוולידציה החדשה - תוקנה הלוגיקה כדי למנוע הזיות!
-    while (needsValidation && attempts < maxAttempts) {
-      const prompt = attempts === 0 
-        ? lastMessage 
-        : "חלק מהקישורים שסיפקת מובילים לשגיאת 404 (לא עובדים) או שהשתמשת בתבניות סוגריים. אנא תקן: השתמש רק באתרי העמותות המורשים. אם אינך מוצא קישור פנימי מדויק שעובד, החלף אותו בקישור לעמוד הבית של העמותה (לדוגמה https://www.shlomit.org.il), הוסף למשתמשת הנחיות אילו מילים לחפש שם, והוסף במדויק את המשפט 'אם חיפשת באתר העמותה ולא מצאת, תכתבי לנו ונחפש יחד משהו אחר'. ודא שכל הקישורים עובדים.";
-
-      const result = await chat.sendMessage(prompt);
-      const response = await result.response;
-      finalResponseText = response.text();
-      
-      const urlRegex = /(https?:\/\/[^\s'",;:!?()\[\]]+)/g;
-      const urls = finalResponseText.match(urlRegex) || [];
-
-      if (urls.length === 0) {
-        // אין קישורים בטקסט - זו שיחה רגילה. הכל תקין, אין צורך בוולידציה.
-        needsValidation = false; 
-      } else {
-        // נמצאו קישורים - נבדוק אותם
-        const validationResults = await Promise.all(urls.map(url => isLinkValid(url)));
-        const allValid = validationResults.every(res => res === true);
-
-        if (allValid) {
-          needsValidation = false; // הכל תקין, אפשר לצאת מהלולאה
-        } else {
-          attempts++; // יש שגיאות 404, נבקש מהמודל לתקן
-        }
-      }
-    }
-
+    // ניקוי סימני Markdown מיותרים לשמירה על Plain Text נקי ב-UI
     const cleanText = finalResponseText
       .replace(/[*#~`]/g, '') 
       .replace(/<[^>]*>?/gm, '');
